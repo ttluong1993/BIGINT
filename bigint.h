@@ -9,12 +9,15 @@
  #include<stdint.h>
  
  #define MAXSIZE	( 256 / 8 )	// = 32 bytes
+ #define MAXVALUE	( 2 ^ 8)
+
+ #define strSpace "0123456789abcdefghijklmnopqrstuvwxzy"
  
  typedef uint8_t u8;			// unsigned 8-bits integer 
  typedef uint16_t u16; 			// unsigned 16-bits integer 
  typedef uint32_t u32; 			// unsigned 32-bits integer 
  typedef uint64_t u64; 			// unsigned 64-bits integer 
- typedef uint128_t u128; 		// unsigned 64-bits integer 
+ //typedef uint128_t u128; 		// unsigned 64-bits integer 
  
  typedef struct bigint_st* BIGINT;
  
@@ -24,6 +27,10 @@
 	u16 size;				/* size in bit */
  };
 
+/* Inverse a string
+ * Input: char* ;	Return: char*
+ */
+char *inv_str(const char *str);
 
 /* Initialize a big integer before using 
  * 
@@ -92,11 +99,11 @@ int BI_cmp_ui(const BIGINT op1, u64 op2);
 /* Compare the absolute values of op1 and op2. 
  * Return a positive value if abs(op1) > abs(op2), zero if abs(op1) = abs(op2), or a negative value if abs(op1) < abs(op2).
  */
-int BI_cmpabs(const BIGINT op1, const BIGINT op2)
+int BI_cmpabs(const BIGINT op1, const BIGINT op2);
 int BI_cmpabs_ui(const BIGINT op1, u64 op2);
 
 /* Return +1 if op > 0, 0 if op = 0, and -1 if op < 0. */
-int BI_sgn (const BIGINT op);
+int BI_sgn(const BIGINT op);
 
 /*
  * Logical and Bit Manipulation Functions
@@ -156,10 +163,10 @@ u8 BI_sizeinbase(const BIGINT op, int base);
 void BI_add(BIGINT rop, const BIGINT op1, const BIGINT op2);
 void BI_add_ui(BIGINT rop, const BIGINT op1, u64 op2);
 
-/* Set rop = op1 â op2 */
+/* Set rop = op1 - op2 */
 void BI_sub(BIGINT rop, const BIGINT op1, const BIGINT op2);
 void BI_sub_ui(BIGINT rop, const BIGINT op1, u64 op2);
-void BI_ui_sub(BIGINT rop, u64 op1, const BIGINT op2)
+void BI_ui_sub(BIGINT rop, u64 op1, const BIGINT op2);
 
 /* Set rop = op1 x op2. */
 void BI_mul(BIGINT rop, const BIGINT op1, const BIGINT op2);
@@ -182,7 +189,7 @@ void BI_div(BIGINT rop, const BIGINT op1, const BIGINT op2);
 void BI_div_si(BIGINT rop, const BIGINT op1, int64_t op2);
 void BI_div_ui(BIGINT rop, const BIGINT op1, u64 op2);
 
-/* Set rop to âop */
+/* Set rop to -op */
 void BI_neg(BIGINT rop, const BIGINT op);
 
 /* Set rop to the absolute value of op */
@@ -193,7 +200,7 @@ void BI_abs(BIGINT rop, const BIGINT op);
 
 /* Set rop = d mod n. The sign of the divisor is ignored; the result is always non-negative. */
 void BI_mod(BIGINT rop, const BIGINT d, const BIGINT n);
-u64 BI_mod_ui (BIGINT rop, const BIGINT d, u64 n);
+u64 BI_mod_ui(BIGINT rop, const BIGINT d, u64 n);
 
 /* Return non-zero if c is congruent to d modulo n */
 int BI_congruent_p(const BIGINT c, const BIGINT d, const BIGINT n);
