@@ -6,10 +6,10 @@
  * by Le Duc Phong
  *
  */
- #include<stdint.h>
+ #include <stdint.h>
  
  #define MAXSIZE	( 256 / 8 )	// = 32 bytes
- #define MAXVALUE	( 2 ^ 8)
+ #define MAXVALUE	256
 
  #define strSpace "0123456789abcdefghijklmnopqrstuvwxzy"
  
@@ -24,13 +24,16 @@
  struct bigint_st {
 	u8 value[MAXSIZE + 1];	/* represent the big number */
 	int8_t signbit; 		/* 1 if positive, -1 if negative */
-	u16 size;				/* size in bit */
+	u8 size;				/* size in bit */
  };
 
 /* Inverse a string
  * Input: char* ;	Return: char*
  */
 char *inv_str(const char *str);
+
+//compute size in bits.
+u8 compute_size(BIGINT rop);
 
 /* Initialize a big integer before using 
  * 
@@ -59,6 +62,7 @@ int BI_set_str(BIGINT rop, const char* str, int base);	/*
 														 * The base may vary from values 2 (binary), 10 (decimal) or 16 (hex)
 														 * This function returns 0 if the entire string is a valid number in base base. Otherwise it returns â1.	
 														 */
+void BI_set_pow_2(BIGINT rop, u8 n);	// Set rop = 2^n
 
 void BI_swap(BIGINT x, BIGINT y);		// swap the values x and y
 
