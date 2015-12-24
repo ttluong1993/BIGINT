@@ -30,7 +30,7 @@
 /* Inverse a string
  * Input: char* ;	Return: char*
  */
-char *inv_str(const char *str);
+char* inv_str(const char *str);
 
 //compute size in bits.
 u8 compute_size(BIGINT rop);
