@@ -40,10 +40,10 @@ u8 compute_size(BIGINT rop);
  * Allocate a memory space for the variable x
  * 
  */
-void BI_init(BIGINT x);
+void BI_init(BIGINT *x);
 
 /* Release a big integer after using */
-void BI_clear(BIGINT x);
+void BI_clear(BIGINT *x);
 
 /* Print out a big number to FILE */
 void BI_print(FILE* out, u8 base, const BIGINT x); 
@@ -70,10 +70,10 @@ void BI_swap(BIGINT x, BIGINT y);		// swap the values x and y
  *  
  * Initialize rop with limb space and set the initial numeric value from op.
  */
-void BI_init_set(BIGINT rop, const BIGINT op);
-void BI_init_set_ui(BIGINT rop, u64 op);
-void BI_init_set_si(BIGINT rop, int64_t op);
-int BI_init_set_str(BIGINT rop, const char *str, int base);
+void BI_init_set(BIGINT *rop, const BIGINT op);
+void BI_init_set_ui(BIGINT *rop, u64 op);
+void BI_init_set_si(BIGINT *rop, int64_t op);
+int BI_init_set_str(BIGINT *rop, const char *str, int base);
 
 /* Conversion functions */
 
@@ -176,6 +176,7 @@ void BI_ui_sub(BIGINT rop, u64 op1, const BIGINT op2);
 void BI_mul(BIGINT rop, const BIGINT op1, const BIGINT op2);
 void BI_mul_si(BIGINT rop, const BIGINT op1, int64_t op2);
 void BI_mul_ui(BIGINT rop, const BIGINT op1, u64 op2);
+void BI_mulm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m);
 
 /* Set rop = rop + op1 x op2 */
 void BI_addmul(BIGINT rop, const BIGINT op1, const BIGINT op2);
@@ -192,6 +193,7 @@ void BI_shift(BIGINT rop, const BIGINT op1, u8 op2);
 void BI_div(BIGINT rop, const BIGINT op1, const BIGINT op2);
 void BI_div_si(BIGINT rop, const BIGINT op1, int64_t op2);
 void BI_div_ui(BIGINT rop, const BIGINT op1, u64 op2);
+void BI_divm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m);
 
 /* Set rop to -op */
 void BI_neg(BIGINT rop, const BIGINT op);

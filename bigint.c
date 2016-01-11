@@ -10,7 +10,7 @@
 char* inv_str(const char *str) {
 	int i=0, j;
 	char *out;
-	out = (char*)malloc(sizeof(char));
+	out = (char*)malloc(256*sizeof(char));
 	while (*(str+i)) {
 		i++;
 	}
@@ -48,16 +48,16 @@ u8 compute_size(BIGINT rop) {
  * Allocate a memory space for the variable x
  * 
  */
-void BI_init(BIGINT x) {
-	if ((x = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
+void BI_init(BIGINT *x) {
+	if ((*x = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
 		printf("error in BI_init\n");
 	}
 }
 
 /* Release a big integer after using */
-void BI_clear(BIGINT x) {
-	if (x != NULL) {
-		free(x);
+void BI_clear(BIGINT *x) {
+	if (*x != NULL) {
+		free(*x);
 	}	
 }
 
@@ -113,9 +113,7 @@ int BI_set_str(BIGINT rop, const char* str, int base) {
 	int i=0, curValue;
 	BIGINT op1;
 	BI_set_ui(rop, 0);
-	if ((op1 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for op1\n");
-	}
+	BI_init(&op1);
 	while (1) {
 		if ((str[i] >= 'a')&(str[i] <= 'z')) {
 			curValue = str[i] - 'a' + 10;
@@ -139,7 +137,7 @@ int BI_set_str(BIGINT rop, const char* str, int base) {
 	}
 	rop->size = compute_size(rop);
 	rop->signbit = 1;
-	free(op1);
+	BI_clear(&op1);
 	return (i>=0);
 }
 
@@ -155,9 +153,7 @@ void BI_set_pow_2(BIGINT rop, u8 n) {
 void BI_swap(BIGINT x, BIGINT y) {
 	int i;
 	BIGINT tmp;
-	if ((tmp = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp\n");
-	}
+	BI_init(&tmp);
 	for (i=0; i<MAXSIZE; i++) {
 		tmp->value[i] = x->value[i];
 		x->value[i] = y->value[i];
@@ -169,31 +165,31 @@ void BI_swap(BIGINT x, BIGINT y) {
 	tmp->size = x->size;
 	x->size = y->size;
 	y->size = tmp->size;
-	free(tmp);
+	BI_clear(&tmp);
 }
 
 /* Combined Initialization and Assignment Functions
  *  
  * Initialize rop with limb space and set the initial numeric value from op.
  */
-void BI_init_set(BIGINT rop, const BIGINT op) {
+void BI_init_set(BIGINT *rop, const BIGINT op) {
 	BI_init(rop);
-	BI_set(rop, op);
+	BI_set(*rop, op);
 }
 
-void BI_init_set_ui(BIGINT rop, u64 op) {
+void BI_init_set_ui(BIGINT *rop, u64 op) {
 	BI_init(rop);
-	BI_set_ui(rop, op);
+	BI_set_ui(*rop, op);
 }
 
-void BI_init_set_si(BIGINT rop, int64_t op) {
+void BI_init_set_si(BIGINT *rop, int64_t op) {
 	BI_init(rop);
-	BI_set_si(rop, op);
+	BI_set_si(*rop, op);
 }
 
-int BI_init_set_str(BIGINT rop, const char *str, int base) {
+int BI_init_set_str(BIGINT *rop, const char *str, int base) {
 	BI_init(rop);
-	BI_set_str(rop, str, base);
+	BI_set_str(*rop, str, base);
 }
 
 /* Conversion functions */
@@ -226,13 +222,8 @@ char* BI_get_str(char *str, int base, const BIGINT op) {
 	int i;
 	u64 irem;
 	BIGINT quot, rem;
-	if ((rem = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for rem\n");
-	}
-	if ((quot = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for quot\n");
-	}
-	BI_set(quot, op);
+	BI_init_set(&quot, op);
+	BI_init(&rem);
 	i = 0;
 	do {
 		irem = BI_mod_ui(rem, quot, base);
@@ -241,8 +232,8 @@ char* BI_get_str(char *str, int base, const BIGINT op) {
 		BI_div_ui(rem, quot, base);
 		BI_set(quot, rem);
 	} while (BI_sgn(quot)!=0);
-	free(rem);
-	free(quot);
+	BI_clear(&rem);
+	BI_clear(&quot);
 	str = inv_str(str);
 	return str;
 }
@@ -253,12 +244,10 @@ char* BI_get_str(char *str, int base, const BIGINT op) {
 void BI_randb(BIGINT rop, u8 n) {
 	int i;
 	BIGINT max;
-	if ((max = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for max\n");
-	}
+	BI_init(&max);
 	BI_set_pow_2(max, n);
 	BI_randm(rop, max);
-	free(max);
+	BI_clear(&max);
 }
 
 /* Generate a uniformly distributed random integer in the range 0 to n-1, inclusive. */
@@ -298,22 +287,16 @@ int BI_cmp(const BIGINT op1, const BIGINT op2) {
 
 int BI_cmp_si(const BIGINT op1, int64_t op2) {
 	BIGINT big_op2;
-	if ((big_op2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_op2\n");
-	}
-	BI_set_si(big_op2, op2);
+	BI_init_set_si(&big_op2, op2);
 	return BI_cmp(op1, big_op2);
-	free(big_op2);
+	BI_clear(&big_op2);
 }
 
 int BI_cmp_ui(const BIGINT op1, u64 op2) {
 	BIGINT big_op2;
-	if ((big_op2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_op2\n");
-	}
-	BI_set_ui(big_op2, op2);
+	BI_init_set_ui(&big_op2, op2);
 	return BI_cmp(op1, big_op2);
-	free(big_op2);
+	BI_clear(&big_op2);
 }
 
 /* Compare the absolute values of op1 and op2. 
@@ -342,12 +325,9 @@ int BI_cmpabs(const BIGINT op1, const BIGINT op2) {
 
 int BI_cmpabs_ui(const BIGINT op1, u64 op2) {
 	BIGINT big_op2;
-	if ((big_op2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_op2\n");
-	}
-	BI_set_ui(big_op2, op2);
+	BI_init_set_ui(&big_op2, op2);
 	return BI_cmpabs(op1, big_op2);
-	free(big_op2);
+	BI_clear(&big_op2);
 }
 
 /* Return +1 if op > 0, 0 if op = 0, and -1 if op < 0. */
@@ -411,14 +391,12 @@ void BI_xor(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 void BI_com(BIGINT rop, const BIGINT op) {
 	u8 size_bit;
 	BIGINT xor_num;
-	if ((xor_num = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for xor_num\n");
-	}
+	BI_init(&xor_num);
 	size_bit = op->size;
 	BI_set_pow_2(rop, size_bit);
 	BI_sub_ui(xor_num, rop, 1);
 	BI_xor(rop, xor_num, op);
-	free(xor_num);
+	BI_clear(&xor_num);
 }
 
 /* Count the number of 1 bits in the binary representation. */
@@ -485,27 +463,27 @@ u8 BI_scan1(const BIGINT op, u8 starting_bit) {
 void BI_setbit(BIGINT rop, u8 bit_index) {
 	u8 or_val;
 	or_val = pow(2, (bit_index % 8));
-	rop->value[bit_index/8] = or_val | rop->value[bit_index/8];
+	rop->value[MAXSIZE - bit_index/8] = or_val | rop->value[MAXSIZE - bit_index/8];
 }
 
 /* Clear bit bit_index in rop. */
 void BI_clrbit(BIGINT rop, u8 bit_index) {
 	u8 and_val;
 	and_val = 255 - pow(2, (bit_index % 8));
-	rop->value[bit_index/8] = and_val & rop->value[bit_index/8];
+	rop->value[MAXSIZE - bit_index/8] = and_val & rop->value[MAXSIZE - bit_index/8];
 }
 
 /* Complement bit bit_index in rop. */
 void BI_combit(BIGINT rop, u8 bit_index) {
 	u8 xor_val;
 	xor_val = pow(2, (bit_index % 8));
-	rop->value[bit_index/8] = xor_val ^ rop->value[bit_index/8];
+	rop->value[MAXSIZE - bit_index/8] = xor_val ^ rop->value[MAXSIZE - bit_index/8];
 }
 
 /* Test bit bit_index in op and return 0 or 1 accordingly. */
 int BI_tstbit(const BIGINT op, u8 bit_index) {
 	u8 val;
-	val = op->value[bit_index/8]/pow(2, (bit_index % 8));
+	val = op->value[MAXSIZE - bit_index/8]/pow(2, (bit_index % 8));
 	if (val % 2 == 1) return 1;
 	else return 0;
 }
@@ -530,20 +508,15 @@ int BI_even_p(const BIGINT op) {
 u8 BI_sizeinbase(const BIGINT op, int base) {
 	u8 result=0;
 	BIGINT n, m;
-	if ((n = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for n\n");
-	}
-	if ((m = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for m\n");
-	}
-	BI_set_ui(m, 1);
+	BI_init(&n);
+	BI_init_set_ui(&m, 1);
 	while (1) {
 		result++;
 		BI_mul_ui(n, m, base);
 		if (BI_cmpabs(n, op) >= 0) break;
 	}
-	free(n);
-	free(m);
+	BI_clear(&n);
+	BI_clear(&m);
 	return result;
 }
 
@@ -589,43 +562,32 @@ void BI_add(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 
 void BI_add_ui(BIGINT rop, const BIGINT op1, u64 op2) {
 	BIGINT big_op2;
-	if ((big_op2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_op2\n");
-	}
-	BI_set_ui(big_op2, op2);
+	BI_init_set_ui(&big_op2, op2);
 	BI_add(rop, op1, big_op2);
-	free(big_op2);
+	BI_clear(&big_op2);
 }
 
 /* Set rop = op1 - op2 */
 void BI_sub(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 	BIGINT neg_op2;
-	if ((neg_op2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for neg_op2\n");
-	}
+	BI_init(&neg_op2);
 	BI_neg(neg_op2, op2);
 	BI_add(rop, op1, neg_op2);
-	free(neg_op2);
+	BI_clear(&neg_op2);
 }
 
 void BI_sub_ui(BIGINT rop, const BIGINT op1, u64 op2) {
 	BIGINT big_op2;
-	if ((big_op2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_op2\n");
-	}
-	BI_set_ui(big_op2, op2);
+	BI_init_set_ui(&big_op2, op2);
 	BI_sub(rop, op1, big_op2);
-	free(big_op2);
+	BI_clear(&big_op2);
 }
 
 void BI_ui_sub(BIGINT rop, u64 op1, const BIGINT op2) {
 	BIGINT big_op1;
-	if ((big_op1 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_op1\n");
-	}
-	BI_set_ui(big_op1, op1);
+	BI_init_set_ui(&big_op1, op1);
 	BI_sub(rop, big_op1, op2);
-	free(big_op1);
+	BI_clear(&big_op1);
 }
 
 /* Set rop = op1 x op2. */
@@ -633,12 +595,8 @@ void BI_mul(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 	int i, j, rem, quot=0;
 	u8 shift_bit;
 	BIGINT tmp1, tmp2;
-	if ((tmp1 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp1\n");
-	}
-	if ((tmp2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp2\n");
-	}
+	BI_init(&tmp1);
+	BI_init(&tmp2);
 	BI_set_ui(rop, 0);
 	for (i=MAXSIZE; i>=0; i--) {
 		if (op2->value[i] != 0) {
@@ -657,98 +615,105 @@ void BI_mul(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 		
 	}
 	if (BI_sgn(rop)!=0) rop->signbit = op1->signbit * op2->signbit;
-	free(tmp1);
-	free(tmp2);
+	BI_clear(&tmp1);
+	BI_clear(&tmp2);
 }
 
 void BI_mul_si(BIGINT rop, const BIGINT op1, int64_t op2) {
 	BIGINT big_op2;
-	if ((big_op2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_op2\n");
-	}
-	BI_set_si(big_op2, op2);
+	BI_init_set_si(&big_op2, op2);
 	BI_mul(rop, op1, big_op2);
-	free(big_op2);
+	BI_clear(&big_op2);
 }
 
 void BI_mul_ui(BIGINT rop, const BIGINT op1, u64 op2) {
 	BIGINT big_op2;
-	if ((big_op2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_op2\n");
-	}
-	BI_set_ui(big_op2, op2);
+	BI_init_set_ui(&big_op2, op2);
 	BI_mul(rop, op1, big_op2);
-	free(big_op2);
+	BI_clear(&big_op2);
+}
+
+void BI_mulm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m) {
+	int i, j, rem, quot=0;
+	u8 shift_bit;
+	BIGINT tmp1, tmp2;
+	BI_init(&tmp1);
+	BI_init(&tmp2);
+	BI_set_ui(rop, 0);
+	for (i=MAXSIZE; i>=0; i--) {
+		if (op2->value[i] != 0) {
+			BI_set(tmp1, op1);
+			shift_bit = 8 * (MAXSIZE - i);
+			while (shift_bit > 0) {
+				if ((shift_bit + tmp2->size) <= 256) {
+					BI_shift(tmp2, tmp1, shift_bit);
+					shift_bit = 0;
+				} else {
+					BI_shift(tmp2, tmp1, 256 - shift_bit);
+					shift_bit = 256 - shift_bit;
+					shift_bit = tmp2->size - shift_bit;
+				}
+				BI_mod(tmp1, tmp2, m);
+			}
+			for (j=MAXSIZE; j>=0; j--) {
+				rem = (tmp1->value[j] * op2->value[i] + quot) % MAXVALUE;
+				quot = (tmp1->value[j] * op2->value[i] + quot) / MAXVALUE;
+				tmp2->value[j] = (uint8_t)rem;
+			}
+			tmp2->signbit = 1;
+			tmp2->size = compute_size(tmp2);
+			BI_add(tmp1, rop, tmp2);
+			BI_mod(rop, tmp1, m);
+		}
+		
+	}
+	if (BI_sgn(rop)!=0) rop->signbit = op1->signbit * op2->signbit;
+	BI_clear(&tmp1);
+	BI_clear(&tmp2);
 }
 
 /* Set rop = rop + op1 x op2 */
 void BI_addmul(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 	BIGINT tmp1, tmp2;
-	if ((tmp1 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp1\n");
-	}
-	if ((tmp2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp2\n");
-	}
+	BI_init(&tmp1);
 	BI_mul(tmp1, op1, op2);
-	BI_set(tmp2, rop);
+	BI_init_set(&tmp2, rop);
 	BI_add(rop, tmp1, tmp2);
-	free(tmp1);
-	free(tmp2);
+	BI_clear(&tmp1);
+	BI_clear(&tmp2);
 }
 
 void BI_addmul_ui(BIGINT rop, const BIGINT op1, u64 op2) {
 	BIGINT tmp1, tmp2, big_op2;
-	if ((tmp1 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp1\n");
-	}
-	if ((tmp2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp2\n");
-	}
-	if ((big_op2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_op2\n");
-	}
-	BI_set_ui(big_op2, op2);
+	BI_init(&tmp1);
+	BI_init_set_ui(&big_op2, op2);
 	BI_mul(tmp1, op1, big_op2);
-	BI_set(tmp2, rop);
+	BI_init_set(&tmp2, rop);
 	BI_add(rop, tmp1, tmp2);
-	free(tmp1);
-	free(tmp2);
+	BI_clear(&tmp1);
+	BI_clear(&tmp2);
 }
 
 /* Set rop to rop - op1 times op2 */
 void BI_submul(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 	BIGINT tmp1, tmp2;
-	if ((tmp1 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp1\n");
-	}
-	if ((tmp2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp2\n");
-	}
+	BI_init(&tmp1);
 	BI_mul(tmp1, op1, op2);
-	BI_set(tmp2, rop);
+	BI_init_set(&tmp2, rop);
 	BI_sub(rop, tmp2, tmp1);
-	free(tmp1);
-	free(tmp2);
+	BI_clear(&tmp1);
+	BI_clear(&tmp2);
 }
 
 void BI_submul_ui(BIGINT rop, const BIGINT op1, u64 op2) {
 	BIGINT tmp1, tmp2, big_op2;
-	if ((tmp1 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp1\n");
-	}
-	if ((tmp2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp2\n");
-	}
-	if ((big_op2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_op2\n");
-	}
-	BI_set_ui(big_op2, op2);
+	BI_init(&tmp1);
+	BI_init_set_ui(&big_op2, op2);
 	BI_mul(tmp1, op1, big_op2);
-	BI_set(tmp2, rop);
+	BI_init_set(&tmp2, rop);
 	BI_sub(rop, tmp2, tmp1);
-	free(tmp1);
-	free(tmp2);
+	BI_clear(&tmp1);
+	BI_clear(&tmp2);
 }
 
 /* Set rop = op1 x 2 ^ op2. This operation can also be defined as a left shift by op2 bits */
@@ -773,21 +738,11 @@ void BI_shift(BIGINT rop, const BIGINT op1, u8 op2) {
 void BI_div(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 	u8 shift_bit;
 	BIGINT uop1, uop2, tmp1, tmp2, tmp3;
-	if ((uop1 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for uop1\n");
-	}
-	if ((uop2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for uop2\n");
-	}
-	if ((tmp1 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp1\n");
-	}
-	if ((tmp2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp2\n");
-	}
-	if ((tmp3 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp3\n");
-	}
+	BI_init(&uop1);
+	BI_init(&uop2);
+	BI_init(&tmp1);
+	BI_init(&tmp2);
+	BI_init(&tmp3);
 	BI_set_ui(rop, 0);
 	BI_abs(uop1, op1);
 	BI_abs(uop2, op2);
@@ -808,31 +763,29 @@ void BI_div(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 		}
 	}
 	rop->signbit = op1->signbit * op2->signbit;
-	free(uop1);
-	free(uop2);
-	free(tmp1);
-	free(tmp2);
-	free(tmp3);
+	BI_clear(&uop1);
+	BI_clear(&uop2);
+	BI_clear(&tmp1);
+	BI_clear(&tmp2);
+	BI_clear(&tmp3);
 }
 
 void BI_div_si(BIGINT rop, const BIGINT op1, int64_t op2) {
 	BIGINT big_op2;
-	if ((big_op2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_op2\n");
-	}
-	BI_set_si(big_op2, op2);
+	BI_init_set_si(&big_op2, op2);
 	BI_div(rop, op1, big_op2);
-	free(big_op2);
+	BI_clear(&big_op2);
 }
 
 void BI_div_ui(BIGINT rop, const BIGINT op1, u64 op2) {
 	BIGINT big_op2;
-	if ((big_op2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_op2\n");
-	}
-	BI_set_ui(big_op2, op2);
+	BI_init_set_ui(&big_op2, op2);
 	BI_div(rop, op1, big_op2);
-	free(big_op2);
+	BI_clear(&big_op2);
+}
+
+void BI_divm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m) {
+	//
 }
 
 /* Set rop to -op */
@@ -854,17 +807,9 @@ void BI_abs(BIGINT rop, const BIGINT op) {
 void BI_mod(BIGINT rop, const BIGINT d, const BIGINT n) {
 	u8 shift_bit;
 	BIGINT tmp1, tmp2, tmp3;
-	if ((tmp1 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp1\n");
-	}
-	if ((tmp2 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp2\n");
-	}
-	if ((tmp3 = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for tmp3\n");
-	}
-	BI_set(tmp1, d);
-	BI_set(tmp2, n);
+	BI_init(&tmp3);
+	BI_init_set(&tmp1, d);
+	BI_init_set(&tmp2, n);
 	tmp1->signbit = 1;
 	tmp2->signbit = 1;
 	if (BI_sgn(n) == 0) printf("Modulo is undefined.\n");
@@ -882,54 +827,41 @@ void BI_mod(BIGINT rop, const BIGINT d, const BIGINT n) {
 			}
 		} else BI_set(rop, d);
 	}
-	free(tmp1);
-	free(tmp2);
-	free(tmp3);
+	BI_clear(&tmp1);
+	BI_clear(&tmp2);
+	BI_clear(&tmp3);
 }
 
 u64 BI_mod_ui(BIGINT rop, const BIGINT d, u64 n) {
 	u64 result;
 	BIGINT big_n;
-	if ((big_n = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_n\n");
-	}
-	BI_set_ui(big_n, n);
+	BI_init_set_ui(&big_n, n);
 	BI_mod(rop, d, big_n);
 	result = BI_get_ui(rop);
-	free(big_n);
+	BI_clear(&big_n);
 	return result;
 }
 
 /* Return non-zero if c is congruent to d modulo n */
 int BI_congruent_p(const BIGINT c, const BIGINT d, const BIGINT n) {
 	BIGINT dif, rem;
-	if ((dif = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for dif\n");
-	}
-	if ((rem = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for rem\n");
-	}
+	BI_init(&dif);
+	BI_init(&rem);
 	BI_sub(dif, c, d);
 	BI_mod(rem, dif, n);
 	if (BI_sgn(rem) == 0) return 1;
 	else return 0;
-	free(dif);
-	free(rem);
+	BI_clear(&dif);
+	BI_clear(&rem);
 }
 
 int BI_congruent_ui_p(const BIGINT c, u64 d, u64 n) {
 	BIGINT big_d, big_n;
-	if ((big_d = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_d\n");
-	}
-	if ((big_n = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_n\n");
-	}
-	BI_set_ui(big_d, d);
-	BI_set_ui(big_n, n);
+	BI_init_set_ui(&big_d, d);
+	BI_init_set_ui(&big_n, n);
 	return BI_congruent_p(c, big_d, big_n);
-	free(big_d);
-	free(big_n);
+	BI_clear(&big_d);
+	BI_clear(&big_n);
 }
 
 /* Set rop to (base raised to exp) modulo mod. */
@@ -937,28 +869,23 @@ void BI_powm(BIGINT rop, const BIGINT base, const BIGINT exp, const BIGINT mod) 
 	int i;
 	u8 bit_index;
 	BIGINT op;
-	if ((op = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for op\n");
-	}
+	BI_init(&op);
 	BI_mod(rop, base, mod);
 	bit_index = exp->size - 1;
 	for (i=bit_index; i>=0; i--) {
-		BI_mul(op, rop, base);
-		BI_mod(rop, op, mod);
+		BI_mulm(op, rop, base, mod);
+		BI_set(rop, op);
 		if (BI_tstbit(exp, i) == 1) {
-			BI_mul(op, rop, base);
-			BI_mod(rop, op, mod);
+			BI_mulm(op, rop, base, mod);
+			BI_set(rop, op);
 		}
 	}
-	free(op);
+	BI_clear(&op);
 }
 
 void BI_powm_ui (BIGINT rop, const BIGINT base, u64 exp, const BIGINT mod) {
 	BIGINT big_exp;
-	if ((big_exp = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
-		printf("error in allocate memory for big_exp\n");
-	}
-	BI_set_ui(big_exp, exp);
+	BI_init_set_ui(&big_exp, exp);
 	BI_powm(rop, base, big_exp, mod);
-	free(big_exp);
+	BI_clear(&big_exp);
 }
