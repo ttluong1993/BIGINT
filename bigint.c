@@ -20,7 +20,7 @@ char* inv_str(const char *str) {
 }
 
 //compute size in bits.
-u8 compute_size(BIGINT rop) {
+u16 compute_size(BIGINT rop) {
 	int i;
 	u8 val;
 	rop->size = 0;
@@ -141,7 +141,7 @@ int BI_set_str(BIGINT rop, const char* str, int base) {
 }
 
 // Set rop = 2^n
-void BI_set_pow_2(BIGINT rop, u8 n) {
+void BI_set_pow_2(BIGINT rop, u16 n) {
 	BI_set_ui(rop, 0);
 	rop->value[MAXSIZE-n/8] = (uint8_t)pow(2,(n%8));
 	rop->size = compute_size(rop);
@@ -245,7 +245,7 @@ char* BI_get_str(char *str, int base, const BIGINT op) {
 /* Random Number Functions */
 
 /* Generate a uniformly distributed random integer in the range 0 to 2^n-1, inclusive. */
-void BI_randb(BIGINT rop, u8 n) {
+void BI_randb(BIGINT rop, u16 n) {
 	int i;
 	BIGINT max;
 	BI_init(&max);
@@ -256,19 +256,18 @@ void BI_randb(BIGINT rop, u8 n) {
 
 /* Generate a uniformly distributed random integer in the range 0 to n-1, inclusive. */
 void BI_randm(BIGINT rop, const BIGINT n) {
-	int i, randSize;
-	srand(time(NULL));
-	randSize = rand()%MAXSIZE + 1;
-	for(i=0; i<=MAXSIZE; i++) {
-		if (i<randSize) {
-			rop->value[MAXSIZE-i] = (uint8_t)(rand()%256);
-		} else {
-			rop->value[MAXSIZE-i] = 0;
-		}
+	int i;
+	BIGINT rnNum;
+	BI_init(&rnNum);
+	//srand(time(NULL));
+	rnNum->value[0] = 0;
+	for(i=1; i<=MAXSIZE; i++) {
+		rnNum->value[i] = (uint8_t)(rand()%256);
 	}
-	rop->signbit = 1;
-	rop->size = compute_size(rop);
-	BI_mod(rop, rop, n);
+	rnNum->signbit = 1;
+	rnNum->size = compute_size(rnNum);
+	BI_mod(rop, rnNum, n);
+	BI_clear(&rnNum);
 }
 
 /* Comparison Functions */
@@ -393,7 +392,7 @@ void BI_xor(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 
 /* Set rop to the one's complement of op. */
 void BI_com(BIGINT rop, const BIGINT op) {
-	u8 size_bit;
+	u16 size_bit;
 	BIGINT xor_num;
 	BI_init(&xor_num);
 	size_bit = op->size;
@@ -404,7 +403,7 @@ void BI_com(BIGINT rop, const BIGINT op) {
 }
 
 /* Count the number of 1 bits in the binary representation. */
-u8 BI_Hammingweight(const BIGINT op) {
+u16 BI_Hammingweight(const BIGINT op) {
 	int i;
 	u8 val, result=0;
 	for (i=0; i<=MAXSIZE; i++) {
@@ -422,8 +421,8 @@ u8 BI_Hammingweight(const BIGINT op) {
 /* Return the hamming distance between the two operands, 
 	 * which is the number of bit positions where op1 and op2 have different bit values
 	 */
-u8 BI_hamdist(const BIGINT op1, const BIGINT op2) {
-	u8 result=0;
+u16 BI_hamdist(const BIGINT op1, const BIGINT op2) {
+	u16 result=0;
 	BIGINT xor_num;
 	if ((xor_num = (struct bigint_st *)malloc(sizeof(struct bigint_st))) == NULL) {
 		printf("error in allocate memory for xor_num\n");
@@ -443,49 +442,55 @@ u8 BI_hamdist(const BIGINT op1, const BIGINT op2) {
  * If there's no bit found, then the largest possible u8 is returned.
  * 
  */
-u8 BI_scan0(const BIGINT op, u8 starting_bit) {
-	u8 bit_index;
+u16 BI_scan0(const BIGINT op, u16 starting_bit) {
+	int found=0;
+	u16 bit_index;
 	for (bit_index = starting_bit; bit_index < op->size; bit_index++) {
 		if (BI_tstbit(op, bit_index) == 0) {
+			found = 1;
 			return bit_index;
 			break;
 		}
 	}
+	if (found == 0) return 255;
 }
 
-u8 BI_scan1(const BIGINT op, u8 starting_bit) {
-	u8 bit_index;
+u16 BI_scan1(const BIGINT op, u16 starting_bit) {
+	int found=0;
+	u16 bit_index;
 	for (bit_index = starting_bit; bit_index < op->size; bit_index++) {
 		if (BI_tstbit(op, bit_index) == 1) {
+			found = 1;
 			return bit_index;
 			break;
 		}
 	}
+	if (found == 0) return 255;
 }
 
 /* Set bit bit_index in rop. */
-void BI_setbit(BIGINT rop, u8 bit_index) {
-	u8 or_val;
+void BI_setbit(BIGINT rop, u16 bit_index) {
+	u16 or_val;
 	or_val = pow(2, (bit_index % 8));
 	rop->value[MAXSIZE - bit_index/8] = or_val | rop->value[MAXSIZE - bit_index/8];
 }
 
 /* Clear bit bit_index in rop. */
-void BI_clrbit(BIGINT rop, u8 bit_index) {
+void BI_clrbit(BIGINT rop, u16 bit_index) {
 	u8 and_val;
 	and_val = 255 - pow(2, (bit_index % 8));
 	rop->value[MAXSIZE - bit_index/8] = and_val & rop->value[MAXSIZE - bit_index/8];
 }
 
 /* Complement bit bit_index in rop. */
-void BI_combit(BIGINT rop, u8 bit_index) {
+void BI_combit(BIGINT rop, u16 bit_index) {
 	u8 xor_val;
 	xor_val = pow(2, (bit_index % 8));
 	rop->value[MAXSIZE - bit_index/8] = xor_val ^ rop->value[MAXSIZE - bit_index/8];
 }
 
 /* Test bit bit_index in op and return 0 or 1 accordingly. */
-int BI_tstbit(const BIGINT op, u8 bit_index) {
+int BI_tstbit(const BIGINT op, u16 bit_index) {
 	u8 val;
 	val = op->value[MAXSIZE - bit_index/8]/pow(2, (bit_index % 8));
 	if (val % 2 == 1) return 1;
@@ -509,8 +514,8 @@ int BI_even_p(const BIGINT op) {
  * The sign of op is ignored, just the absolute value is used. 
  * The result will be either exact or 1 too big. If base is a power of 2, the result is always exact. If op is zero the return value is always 1.
  */
-u8 BI_sizeinbase(const BIGINT op, int base) {
-	u8 result=0;
+u16 BI_sizeinbase(const BIGINT op, int base) {
+	u16 result=0;
 	BIGINT n, m;
 	BI_init(&n);
 	BI_init_set_ui(&m, 1);
@@ -597,7 +602,7 @@ void BI_ui_sub(BIGINT rop, u64 op1, const BIGINT op2) {
 /* Set rop = op1 x op2. */
 void BI_mul(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 	int i, j, rem, quot=0;
-	u8 shift_bit;
+	u16 shift_bit;
 	BIGINT tmp1, tmp2;
 	BI_init(&tmp1);
 	BI_init(&tmp2);
@@ -639,7 +644,7 @@ void BI_mul_ui(BIGINT rop, const BIGINT op1, u64 op2) {
 
 void BI_mulm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m) {
 	int i, j, rem, quot=0;
-	u8 shift_bit;
+	u16 shift_bit;
 	BIGINT tmp1, tmp2;
 	BI_init(&tmp1);
 	BI_init(&tmp2);
@@ -725,7 +730,7 @@ void BI_submul_ui(BIGINT rop, const BIGINT op1, u64 op2) {
 }
 
 /* Set rop = op1 x 2 ^ op2. This operation can also be defined as a left shift by op2 bits */
-void BI_shift(BIGINT rop, const BIGINT op1, u8 op2) {
+void BI_shift(BIGINT rop, const BIGINT op1, u16 op2) {
 	int i, n, k, rem=0;
 	n = op2 / 8;
 	k = op2 % 8;
@@ -744,7 +749,7 @@ void BI_shift(BIGINT rop, const BIGINT op1, u8 op2) {
 
 /* Set rop = op1 / op2. Division is undefined if the divisor is zero */
 void BI_div(BIGINT rop, const BIGINT op1, const BIGINT op2) {
-	u8 shift_bit;
+	u16 shift_bit;
 	BIGINT uop1, uop2, tmp1, tmp2, tmp3;
 	BI_init(&uop1);
 	BI_init(&uop2);
@@ -829,15 +834,13 @@ void BI_abs(BIGINT rop, const BIGINT op) {
 
 /* Set rop = d mod n. The sign of the divisor is ignored; the result is always non-negative. */
 void BI_mod(BIGINT rop, const BIGINT d, const BIGINT n) {
-	u8 shift_bit;
+	u16 shift_bit;
 	BIGINT tmp1, tmp2, tmp3;
 	BI_init(&tmp3);
 	BI_init(&tmp1);
 	BI_init(&tmp2);
 	BI_abs(tmp1, d);
 	BI_abs(tmp2, n);
-	tmp1->signbit = 1;
-	tmp2->signbit = 1;
 	if (BI_sgn(n) == 0) printf("Modulo is undefined.\n");
 	else {
 		if (BI_cmpabs(d, n) >= 0) {
@@ -915,7 +918,7 @@ int BI_congruent_ui_p(const BIGINT c, u64 d, u64 n) {
 /* Set rop to (base raised to exp) modulo mod. */
 void BI_powm(BIGINT rop, const BIGINT base, const BIGINT exp, const BIGINT mod) {
 	int i;
-	u8 bit_index;
+	u16 bit_index;
 	BIGINT op;
 	BI_init(&op);
 	BI_mod(rop, base, mod);
