@@ -193,7 +193,7 @@ void BI_shift(BIGINT rop, const BIGINT op1, u8 op2);
 void BI_div(BIGINT rop, const BIGINT op1, const BIGINT op2);
 void BI_div_si(BIGINT rop, const BIGINT op1, int64_t op2);
 void BI_div_ui(BIGINT rop, const BIGINT op1, u64 op2);
-void BI_divm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m);
+int BI_divm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m);
 
 /* Set rop to -op */
 void BI_neg(BIGINT rop, const BIGINT op);
@@ -208,6 +208,11 @@ void BI_abs(BIGINT rop, const BIGINT op);
 void BI_mod(BIGINT rop, const BIGINT d, const BIGINT n);
 u64 BI_mod_ui(BIGINT rop, const BIGINT d, u64 n);
 
+/* Set rop = modular multiplicative inverse of op in modular mod.
+ * Return 1 if it's success. Otherwise, return 0.
+ */
+int BI_inverse(BIGINT rop, const BIGINT op, const BIGINT mod);
+
 /* Return non-zero if c is congruent to d modulo n */
 int BI_congruent_p(const BIGINT c, const BIGINT d, const BIGINT n);
 int BI_congruent_ui_p(const BIGINT c, u64 d, u64 n);
@@ -215,3 +220,13 @@ int BI_congruent_ui_p(const BIGINT c, u64 d, u64 n);
 /* Set rop to (base raised to exp) modulo mod. */
 void BI_powm(BIGINT rop, const BIGINT base, const BIGINT exp, const BIGINT mod);
 void BI_powm_ui (BIGINT rop, const BIGINT base, u64 exp, const BIGINT mod);
+
+/* Number theory algorithms. */
+
+/* Eclip gcd(a, b) */
+void BI_gcd(BIGINT rop, const BIGINT a, const BIGINT b);
+
+/* Extended Eclip
+ * Return [g, x, y] satisfy the equation g = ax + by.
+ */
+void BI_xgcd(BIGINT g, BIGINT x, BIGINT y, const BIGINT a, const BIGINT b);

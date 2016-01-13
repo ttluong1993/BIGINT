@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <math.h>
 #include "bigint.h"
@@ -8,16 +9,11 @@
  * Input: char* ;	Return: char*
  */
 char* inv_str(const char *str) {
-	int i=0, j;
+	int i;
 	char *out;
 	out = (char*)malloc(256*sizeof(char));
-	while (*(str+i)) {
-		i++;
-	}
-	j=i;
-	while (i>=0) {
-		*(out+j-i) = *(str+i-1);
-		i--;
+	for (i=0; i<strlen(str); i++) {
+		*(out + i) = *(str + strlen(str) - i - 1);
 	}
 	return out;
 	free(out);
@@ -110,35 +106,38 @@ void BI_set_si(BIGINT rop, const int64_t op) {
 }
 
 int BI_set_str(BIGINT rop, const char* str, int base) {
-	int i=0, curValue;
+	int i=0, curValue=-1, sign=1;
 	BIGINT op1;
 	BI_set_ui(rop, 0);
 	BI_init(&op1);
 	while (1) {
-		if ((str[i] >= 'a')&(str[i] <= 'z')) {
-			curValue = str[i] - 'a' + 10;
-		} else if ((str[i] >= 'A')&(str[i] <= 'Z')) {
-			curValue = str[i] - 'A' + 10;
-		} else if ((str[i] >= '0')&(str[i] <= '9')) {
-			curValue = str[i] - '0';
+		if (str[i] == ' ') {
+			// do nothing
+		} else if ((str[i] == '-')&&(curValue == -1)) {
+			sign = -1;
 		} else {
-			return 0;
-			break;
+			if ((str[i] >= 'a')&&(str[i] <= 'z')) {
+				curValue = str[i] - 'a' + 10;
+			} else if ((str[i] >= 'A')&&(str[i] <= 'Z')) {
+				curValue = str[i] - 'A' + 10;
+			} else if ((str[i] >= '0')&&(str[i] <= '9')) {
+				curValue = str[i] - '0';
+			} else {
+				curValue = -1;
+			}
+			if ((curValue >= 0)&&(curValue < base)) {
+				BI_mul_ui(op1, rop, base);
+				BI_add_ui(rop, op1, curValue);
+			} else {
+				break;
+			}
 		}
 		i++;
-		if (curValue < base) {
-			BI_mul_ui(op1, rop, base);
-			BI_add_ui(rop, op1, curValue);
-		} else {
-			i = -1;
-			break;
-		}
-		
 	}
 	rop->size = compute_size(rop);
-	rop->signbit = 1;
+	rop->signbit = sign;
 	BI_clear(&op1);
-	return (i>=0);
+	return ((curValue >= 0)&&(curValue < base));
 }
 
 // Set rop = 2^n
@@ -234,6 +233,11 @@ char* BI_get_str(char *str, int base, const BIGINT op) {
 	} while (BI_sgn(quot)!=0);
 	BI_clear(&rem);
 	BI_clear(&quot);
+	if (op->signbit == -1) {
+		str[i] = '-';
+		i++;
+	}
+	str[i] = '\0';
 	str = inv_str(str);
 	return str;
 }
@@ -642,7 +646,7 @@ void BI_mulm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m) {
 	BI_set_ui(rop, 0);
 	for (i=MAXSIZE; i>=0; i--) {
 		if (op2->value[i] != 0) {
-			BI_set(tmp1, op1);
+			BI_abs(tmp1, op1);
 			shift_bit = 8 * (MAXSIZE - i);
 			while (shift_bit > 0) {
 				if ((shift_bit + tmp2->size) <= 256) {
@@ -653,6 +657,7 @@ void BI_mulm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m) {
 					shift_bit = 256 - shift_bit;
 					shift_bit = tmp2->size - shift_bit;
 				}
+				tmp2->signbit = 1;
 				BI_mod(tmp1, tmp2, m);
 			}
 			for (j=MAXSIZE; j>=0; j--) {
@@ -667,7 +672,10 @@ void BI_mulm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m) {
 		}
 		
 	}
-	if (BI_sgn(rop)!=0) rop->signbit = op1->signbit * op2->signbit;
+	if ((op1->signbit * op2->signbit) == -1) {
+		BI_sub(tmp2, m, rop);
+		BI_set(rop, tmp2);
+	}
 	BI_clear(&tmp1);
 	BI_clear(&tmp2);
 }
@@ -784,8 +792,24 @@ void BI_div_ui(BIGINT rop, const BIGINT op1, u64 op2) {
 	BI_clear(&big_op2);
 }
 
-void BI_divm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m) {
-	//
+/* Set rop where rop * op2 (mod m) = op1 (mod m).
+ * Return 1 if op1 div op2 in modular m exist. Otherwise, return 0.
+ */
+int BI_divm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m) {
+	BIGINT g, x, y;
+	BI_init(&g);
+	BI_init(&x);
+	BI_init(&y);
+	BI_gcd(g, op1, op2);
+	BI_div(x, op1, g);
+	BI_div(y, op2, g);
+	if (BI_inverse(g, y, m)) {
+		BI_mulm(rop, x, g, m);
+		return 1;
+	} else return 0;
+	BI_clear(&g);
+	BI_clear(&x);
+	BI_clear(&y);
 }
 
 /* Set rop to -op */
@@ -808,8 +832,10 @@ void BI_mod(BIGINT rop, const BIGINT d, const BIGINT n) {
 	u8 shift_bit;
 	BIGINT tmp1, tmp2, tmp3;
 	BI_init(&tmp3);
-	BI_init_set(&tmp1, d);
-	BI_init_set(&tmp2, n);
+	BI_init(&tmp1);
+	BI_init(&tmp2);
+	BI_abs(tmp1, d);
+	BI_abs(tmp2, n);
 	tmp1->signbit = 1;
 	tmp2->signbit = 1;
 	if (BI_sgn(n) == 0) printf("Modulo is undefined.\n");
@@ -827,6 +853,10 @@ void BI_mod(BIGINT rop, const BIGINT d, const BIGINT n) {
 			}
 		} else BI_set(rop, d);
 	}
+	if (d->signbit < 0) {
+		BI_sub(tmp1, n, rop);
+		BI_set(rop, tmp1);
+	}	
 	BI_clear(&tmp1);
 	BI_clear(&tmp2);
 	BI_clear(&tmp3);
@@ -840,6 +870,24 @@ u64 BI_mod_ui(BIGINT rop, const BIGINT d, u64 n) {
 	result = BI_get_ui(rop);
 	BI_clear(&big_n);
 	return result;
+}
+
+/* Set rop = modular multiplicative inverse of op in modular mod.
+ * Return 1 if it's success. Otherwise, return 0.
+ */
+int BI_inverse(BIGINT rop, const BIGINT op, const BIGINT mod) {
+	BIGINT g, x, y;
+	BI_init(&g);
+	BI_init(&x);
+	BI_init(&y);
+	BI_xgcd(g, x, y, op, mod);
+	if (BI_cmp_ui(g, 1) == 0) {
+		BI_set(rop, x);
+		return 1;
+	} else return 0;
+	BI_clear(&g);
+	BI_clear(&x);
+	BI_clear(&y);
 }
 
 /* Return non-zero if c is congruent to d modulo n */
@@ -888,4 +936,93 @@ void BI_powm_ui (BIGINT rop, const BIGINT base, u64 exp, const BIGINT mod) {
 	BI_init_set_ui(&big_exp, exp);
 	BI_powm(rop, base, big_exp, mod);
 	BI_clear(&big_exp);
+}
+
+/* Number theory algorithms. */
+
+/* Eclip gcd(a, b) */
+void BI_gcd(BIGINT rop, const BIGINT a, const BIGINT b) {
+	BIGINT op1, op2;
+	BI_init(&op1);
+	BI_abs(op1, a);
+	BI_init(&op2);
+	BI_abs(op2, b);
+	while (BI_sgn(op1) != 0) {
+		BI_set(rop, op1);
+		BI_mod(op1, op2, rop);
+		BI_set(op2, rop);
+	}
+	BI_set(rop, op2);
+	BI_clear(&op1);
+	BI_clear(&op2);
+}
+
+/* Extended Eclip
+ * Return [g, x, y] satisfy the equation g = ax + by.
+ */
+void BI_xgcd(BIGINT g, BIGINT x, BIGINT y, const BIGINT a, const BIGINT b) {
+	BIGINT x1, y1, x2, y2, a1, b1, quot;
+	int swap = 0;
+	BI_init_set_ui(&x1, 1);
+	BI_init_set_ui(&y1, 0);
+	BI_init_set_ui(&x2, 0);
+	BI_init_set_ui(&y2, 1);
+	BI_init(&a1);
+	BI_init(&b1);
+	BI_init(&quot);
+	BI_abs(a1, a);
+	BI_abs(b1, b);
+	if (BI_cmp(a1, b1) > 0) {
+		swap = 1;
+		BI_swap(a1, b1);
+	}
+	while (1) {
+		BI_div(quot, a1, b1);
+		BI_submul(x1, x2, quot);
+		BI_submul(y1, y2, quot);
+		BI_mod(quot, a1, b1);
+		BI_set(a1, quot);
+		if (BI_sgn(a1) == 0) {
+			BI_set(g, b1);
+			if (swap == 1) {
+				BI_set(x, y2);
+				x->signbit = b->signbit;
+				BI_set(y, x2);
+				y->signbit = a->signbit;
+			} else {
+				BI_set(x, x2);
+				x->signbit = a->signbit;
+				BI_set(y, y2);
+				y->signbit = b->signbit;
+			}
+			break;
+		}
+		BI_div(quot, b1, a1);
+		BI_submul(x2, x1, quot);
+		BI_submul(y2, y1, quot);
+		BI_mod(quot, b1, a1);
+		BI_set(b1, quot);
+		if (BI_sgn(b1) == 0) {
+			BI_set(g, a1);
+			if (swap == 1) {
+				BI_set(x, y1);
+				x->signbit = b->signbit;
+				BI_set(y, x1);
+				y->signbit = a->signbit;
+			} else {
+				BI_set(x, x1);
+				x->signbit = a->signbit;
+				BI_set(y, y1);
+				y->signbit = b->signbit;
+			}
+			break;
+		}
+	}
+	BI_clear(&x1);
+	BI_clear(&y1);
+	BI_clear(&x2);
+	BI_clear(&y2);
+	BI_clear(&a1);
+	BI_clear(&b1);
+	BI_clear(&quot);
 }
