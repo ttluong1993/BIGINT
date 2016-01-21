@@ -11,7 +11,7 @@
 char* inv_str(const char *str) {
 	int i;
 	char *out;
-	out = (char*)malloc(256*sizeof(char));
+	out = (char*)malloc(265*sizeof(char));
 	for (i=0; i<strlen(str); i++) {
 		*(out + i) = *(str + strlen(str) - i - 1);
 	}
@@ -60,7 +60,7 @@ void BI_clear(BIGINT *x) {
 /* Print out a big number to FILE */
 void BI_print(FILE* out, u8 base, const BIGINT x) {
 	char *strout;
-	strout = (char*)malloc(sizeof(char));
+	strout = (char*)malloc(265*sizeof(char));
 	BI_get_str(strout, base, x);
 	if (strout != NULL) {
 		fprintf(out, "%s", strout);
@@ -144,7 +144,7 @@ int BI_set_str(BIGINT rop, const char* str, int base) {
 void BI_set_pow_2(BIGINT rop, u16 n) {
 	BI_set_ui(rop, 0);
 	rop->value[MAXSIZE-n/8] = (uint8_t)pow(2,(n%8));
-	rop->size = compute_size(rop);
+	rop->size = n + 1;
 	rop->signbit = 1;
 }
 
@@ -226,6 +226,7 @@ char* BI_get_str(char *str, int base, const BIGINT op) {
 	i = 0;
 	do {
 		irem = BI_mod_ui(rem, quot, base);
+		irem = irem % base;
 		str[i] = strSpace[irem];
 		i++;
 		BI_div_ui(rem, quot, base);
@@ -363,8 +364,8 @@ void BI_and(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 			rop->value[i] = op1->value[i] & op2->value[i];
 		} else rop->value[i] = 0;
 	}
-	if (op1->size > op2->size) rop->size = op1->size;
-	else rop->size = op2->size;
+	if (op1->size > op2->size) rop->size = op2->size;
+	else rop->size = op1->size;
 	rop->signbit = 1;
 }
 
@@ -372,7 +373,7 @@ void BI_ior(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 	/* Set rop to op1 bitwise inclusive-or op2. */
 	int i;
 	for (i=0; i<=MAXSIZE; i++) {
-		rop->value[i] = op1->value[i] || op2->value[i];
+		rop->value[i] = op1->value[i] | op2->value[i];
 	}
 	if (op1->size > op2->size) rop->size = op1->size;
 	else rop->size = op2->size;
@@ -415,7 +416,7 @@ u16 BI_Hammingweight(const BIGINT op) {
 			val = val/2;
 		}
 	}
-	return val;
+	return result;
 }
 
 /* Return the hamming distance between the two operands, 
@@ -601,7 +602,7 @@ void BI_ui_sub(BIGINT rop, u64 op1, const BIGINT op2) {
 
 /* Set rop = op1 x op2. */
 void BI_mul(BIGINT rop, const BIGINT op1, const BIGINT op2) {
-	int i, j, rem, quot=0;
+	int i, j, rem, quot;
 	u16 shift_bit;
 	BIGINT tmp1, tmp2;
 	BI_init(&tmp1);
@@ -611,6 +612,7 @@ void BI_mul(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 		if (op2->value[i] != 0) {
 			shift_bit = 8 * (MAXSIZE - i);
 			BI_shift(tmp1, op1, shift_bit);
+			quot = 0;
 			for (j=MAXSIZE; j>=0; j--) {
 				rem = (tmp1->value[j] * op2->value[i] + quot) % MAXVALUE;
 				quot = (tmp1->value[j] * op2->value[i] + quot) / MAXVALUE;
@@ -643,7 +645,7 @@ void BI_mul_ui(BIGINT rop, const BIGINT op1, u64 op2) {
 }
 
 void BI_mulm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m) {
-	int i, j, rem, quot=0;
+	int i, j, rem, quot;
 	u16 shift_bit;
 	BIGINT tmp1, tmp2;
 	BI_init(&tmp1);
@@ -654,17 +656,17 @@ void BI_mulm(BIGINT rop, const BIGINT op1, const BIGINT op2, const BIGINT m) {
 			BI_abs(tmp1, op1);
 			shift_bit = 8 * (MAXSIZE - i);
 			while (shift_bit > 0) {
-				if ((shift_bit + tmp2->size) <= 256) {
+				if ((shift_bit + tmp1->size) <= 264) {
 					BI_shift(tmp2, tmp1, shift_bit);
 					shift_bit = 0;
 				} else {
-					BI_shift(tmp2, tmp1, 256 - shift_bit);
-					shift_bit = 256 - shift_bit;
-					shift_bit = tmp2->size - shift_bit;
+					BI_shift(tmp2, tmp1, 264 - tmp1->size);
+					shift_bit = shift_bit + tmp1->size - 264;
 				}
 				tmp2->signbit = 1;
 				BI_mod(tmp1, tmp2, m);
 			}
+			quot = 0;
 			for (j=MAXSIZE; j>=0; j--) {
 				rem = (tmp1->value[j] * op2->value[i] + quot) % MAXVALUE;
 				quot = (tmp1->value[j] * op2->value[i] + quot) / MAXVALUE;
@@ -736,7 +738,7 @@ void BI_shift(BIGINT rop, const BIGINT op1, u16 op2) {
 	k = op2 % 8;
 	k = pow(2, k);
 	for (i=MAXSIZE; i>=0; i--) {
-		if ((MAXSIZE-i) < n) {
+		if ((i +n) > MAXSIZE) {
 			rop->value[i] = 0;
 		} else {
 			rop->value[i] = (uint8_t)((k * op1->value[i+n] + rem) % MAXVALUE);
@@ -744,7 +746,7 @@ void BI_shift(BIGINT rop, const BIGINT op1, u16 op2) {
 		}
 	}
 	rop->signbit = op1->signbit;
-	rop->size = op1->size + op2;
+	rop->size = compute_size(rop);
 }
 
 /* Set rop = op1 / op2. Division is undefined if the divisor is zero */
@@ -764,7 +766,7 @@ void BI_div(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 		while (BI_cmpabs(uop1, uop2) >= 0) {
 			shift_bit = uop1->size - uop2->size;
 			BI_shift(tmp1, uop2, shift_bit);
-			if (BI_cmpabs(uop1, tmp1) < 0) {
+			if (BI_cmp(uop1, tmp1) < 0) {
 				shift_bit -=1;
 				BI_shift(tmp1, uop2, shift_bit);
 			}
@@ -774,8 +776,8 @@ void BI_div(BIGINT rop, const BIGINT op1, const BIGINT op2) {
 			BI_set_pow_2(tmp3, shift_bit);
 			BI_add(rop, tmp2, tmp3);
 		}
+		rop->signbit = op1->signbit * op2->signbit;
 	}
-	rop->signbit = op1->signbit * op2->signbit;
 	BI_clear(&uop1);
 	BI_clear(&uop2);
 	BI_clear(&tmp1);
@@ -843,21 +845,21 @@ void BI_mod(BIGINT rop, const BIGINT d, const BIGINT n) {
 	BI_abs(tmp2, n);
 	if (BI_sgn(n) == 0) printf("Modulo is undefined.\n");
 	else {
-		if (BI_cmpabs(d, n) >= 0) {
-			while (BI_cmpabs(tmp1, n) >= 0) {
+		if (BI_cmp(tmp1, tmp2) >= 0) {
+			while (BI_cmp(tmp1, n) >= 0) {
 				shift_bit = tmp1->size - tmp2->size;
 				BI_shift(tmp3, tmp2, shift_bit);
-				if (BI_cmpabs(tmp1, tmp3) < 0) {
+				if (BI_cmp(tmp1, tmp3) < 0) {
 					shift_bit -=1;
 					BI_shift(tmp3, tmp2, shift_bit);
 				}
 				BI_sub(rop, tmp1, tmp3);
 				BI_set(tmp1, rop);
 			}
-		} else BI_set(rop, d);
+		} else BI_set(rop, tmp1);
 	}
 	if (d->signbit < 0) {
-		BI_sub(tmp1, n, rop);
+		BI_sub(tmp1, tmp2, rop);
 		BI_set(rop, tmp1);
 	}	
 	BI_clear(&tmp1);
@@ -919,19 +921,23 @@ int BI_congruent_ui_p(const BIGINT c, u64 d, u64 n) {
 void BI_powm(BIGINT rop, const BIGINT base, const BIGINT exp, const BIGINT mod) {
 	int i;
 	u16 bit_index;
-	BIGINT op;
-	BI_init(&op);
-	BI_mod(rop, base, mod);
+	BIGINT op1, op2;
+	BI_init(&op1);
+	BI_init(&op2);
+	BI_set_ui(rop, 1);
+	BI_mod(op2, base, mod);
 	bit_index = exp->size - 1;
 	for (i=bit_index; i>=0; i--) {
-		BI_mulm(op, rop, base, mod);
-		BI_set(rop, op);
+		BI_mulm(op1, rop, rop, mod);
+		BI_set(rop, op1);
 		if (BI_tstbit(exp, i) == 1) {
-			BI_mulm(op, rop, base, mod);
-			BI_set(rop, op);
+			BI_mulm(op1, rop, op2, mod);
+			BI_set(op2, op1);
+			BI_set(rop, op1);
 		}
 	}
-	BI_clear(&op);
+	BI_clear(&op1);
+	BI_clear(&op2);
 }
 
 void BI_powm_ui (BIGINT rop, const BIGINT base, u64 exp, const BIGINT mod) {
